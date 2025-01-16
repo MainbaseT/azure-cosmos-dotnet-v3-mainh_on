@@ -9,6 +9,7 @@ namespace Microsoft.Azure.Cosmos.Telemetry
     using System.Diagnostics;
     using global::Azure.Core;
     using Microsoft.Azure.Cosmos.Telemetry.Diagnostics;
+    using Microsoft.Azure.Cosmos.Telemetry.OpenTelemetry;
     using Microsoft.Azure.Documents;
 
     /// <summary>
@@ -17,7 +18,7 @@ namespace Microsoft.Azure.Cosmos.Telemetry
     /// </summary>
     internal struct OpenTelemetryCoreRecorder : IDisposable
     {
-        private const string CosmosDb = "cosmosdb";
+        internal const string CosmosDb = "cosmosdb";
 
         private readonly DiagnosticScope scope = default;
         private readonly CosmosThresholdOptions config = null;
@@ -25,6 +26,10 @@ namespace Microsoft.Azure.Cosmos.Telemetry
 
         private readonly OperationType operationType = OperationType.Invalid;
         private readonly string connectionModeCache = null;
+
+        private readonly QueryTextMode? queryTextMode = null;
+
+        private readonly IActivityAttributePopulator activityAttributePopulator = TracesStabilityFactory.GetAttributePopulator();
 
         private OpenTelemetryAttributes response = null;
 
@@ -59,17 +64,27 @@ namespace Microsoft.Azure.Cosmos.Telemetry
             string databaseName,
             OperationType operationType, 
             CosmosClientContext clientContext, 
-            CosmosThresholdOptions config)
+            CosmosThresholdOptions config,
+            QueryTextMode queryTextMode)
         {
             this.scope = scope;
             this.config = config;
 
             this.operationType = operationType;
-            this.connectionModeCache = Enum.GetName(typeof(ConnectionMode), clientContext.ClientOptions.ConnectionMode);
+            this.connectionModeCache = clientContext.ClientOptions.ConnectionMode switch
+            {
+                ConnectionMode.Direct => "direct",
+                ConnectionMode.Gateway => "gateway",
+                _ => throw new NotImplementedException()
+            };
+
+            this.queryTextMode = queryTextMode;
 
             if (scope.IsEnabled)
             {
                 this.scope.Start();
+
+                this.scope.AddAttribute(OpenTelemetryAttributeKeys.DbSystemName, OpenTelemetryCoreRecorder.CosmosDb);
 
                 this.Record(
                         operationName: operationName,
@@ -107,7 +122,8 @@ namespace Microsoft.Azure.Cosmos.Telemetry
             string databaseName,
             Documents.OperationType operationType,
             CosmosClientContext clientContext,
-            CosmosThresholdOptions config)
+            CosmosThresholdOptions config, 
+            QueryTextMode queryTextMode)
         {
             return new OpenTelemetryCoreRecorder(
                         operationScope,
@@ -116,7 +132,8 @@ namespace Microsoft.Azure.Cosmos.Telemetry
                         databaseName,
                         operationType,
                         clientContext,
-                        config);
+                        config,
+                        queryTextMode);
         }
 
         public bool IsEnabled => this.scope.IsEnabled;
@@ -144,19 +161,15 @@ namespace Microsoft.Azure.Cosmos.Telemetry
         {
             if (this.IsEnabled)
             {
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.DbOperation, operationName);
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.DbName, databaseName);
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.ContainerName, containerName);
-                
-                // Other information
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.DbSystemName, OpenTelemetryCoreRecorder.CosmosDb);
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.MachineId, VmMetadataApiHandler.GetMachineId());
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.ServerAddress, clientContext.Client?.Endpoint?.Host);
-
-                // Client Information
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.ClientId, clientContext?.Client?.Id);
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.UserAgent, clientContext.UserAgent);
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.ConnectionMode, this.connectionModeCache);
+                this.activityAttributePopulator.PopulateAttributes(this.scope,
+                    operationName,
+                    databaseName,
+                    containerName,
+                    clientContext.Client?.Endpoint,
+                    clientContext.UserAgent,
+                    VmMetadataApiHandler.GetMachineId(),
+                    clientContext?.Client?.Id,
+                    this.connectionModeCache);
             }
         }
 
@@ -180,14 +193,7 @@ namespace Microsoft.Azure.Cosmos.Telemetry
         {
             if (this.IsEnabled)
             {
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.ExceptionStacktrace, exception.StackTrace);
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.ExceptionType, exception.GetType().Name);
-
-                // If Exception is not registered with open Telemetry
-                if (!OpenTelemetryCoreRecorder.IsExceptionRegistered(exception, this.scope))
-                {
-                    this.scope.AddAttribute(OpenTelemetryAttributeKeys.ExceptionMessage, exception.Message);
-                }
+                this.activityAttributePopulator.PopulateAttributes(this.scope, exception);
 
                 if (exception is not CosmosException || (exception is CosmosException cosmosException
                             && !DiagnosticsFilterHelper
@@ -226,30 +232,13 @@ namespace Microsoft.Azure.Cosmos.Telemetry
             {
                 OperationType operationType
                     = (this.response == null || this.response?.OperationType == OperationType.Invalid) ? this.operationType : this.response.OperationType;
-
-                string operationName = Enum.GetName(typeof(OperationType), operationType);
-                this.scope.AddAttribute(OpenTelemetryAttributeKeys.OperationType, operationName);
+                string operationTypeName = Enum.GetName(typeof(OperationType), operationType);
 
                 if (this.response != null)
                 {
-                    if (this.response.BatchSize is not null)
-                    {
-                        this.scope.AddIntegerAttribute(OpenTelemetryAttributeKeys.BatchSize, (int)this.response.BatchSize);
-                    }
-                    this.scope.AddAttribute(OpenTelemetryAttributeKeys.RequestContentLength, this.response.RequestContentLength);
-                    this.scope.AddAttribute(OpenTelemetryAttributeKeys.ResponseContentLength, this.response.ResponseContentLength);
-                    this.scope.AddIntegerAttribute(OpenTelemetryAttributeKeys.StatusCode, (int)this.response.StatusCode);
-                    this.scope.AddIntegerAttribute(OpenTelemetryAttributeKeys.SubStatusCode, this.response.SubStatusCode);
-                    this.scope.AddIntegerAttribute(OpenTelemetryAttributeKeys.RequestCharge, (int)this.response.RequestCharge);
-                    this.scope.AddAttribute(OpenTelemetryAttributeKeys.ItemCount, this.response.ItemCount);
-                    this.scope.AddAttribute(OpenTelemetryAttributeKeys.ActivityId, this.response.ActivityId);
-                    this.scope.AddAttribute(OpenTelemetryAttributeKeys.CorrelatedActivityId, this.response.CorrelatedActivityId);
+                    this.activityAttributePopulator.PopulateAttributes(this.scope, this.queryTextMode, operationTypeName, this.response);
 
-                    if (this.response.Diagnostics != null)
-                    {
-                        this.scope.AddAttribute(OpenTelemetryAttributeKeys.Region, ClientTelemetryHelper.GetContactedRegions(this.response.Diagnostics.GetContactedRegions()));
-                        CosmosDbEventSource.RecordDiagnosticsForRequests(this.config, operationType, this.response);
-                    }
+                    CosmosDbEventSource.RecordDiagnosticsForRequests(this.config, operationType, this.response);
 
                     if (!DiagnosticsFilterHelper.IsSuccessfulResponse(this.response.StatusCode, this.response.SubStatusCode))
                     {
