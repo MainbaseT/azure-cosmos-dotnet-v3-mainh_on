@@ -10,6 +10,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
     using System.Threading;
     using System.Threading.Tasks;
     using Microsoft.Azure.Cosmos.ChangeFeed.LeaseManagement;
+    using Microsoft.Azure.Cosmos.Serialization.HybridRow;
     using Microsoft.Azure.Cosmos.Telemetry;
     using Microsoft.Azure.Cosmos.Tests;
     using Microsoft.Azure.Cosmos.Tracing;
@@ -40,6 +41,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
 
             Mock<ContainerInternal> containerMock = new Mock<ContainerInternal>();
             Mock<CosmosClientContext> mockContext = new Mock<CosmosClientContext>();
+#pragma warning disable CA1416 // 'ResourceType' is only supported on: 'windows'
             mockContext.Setup(x => x.OperationHelperAsync<ResponseMessage>(
                 It.Is<string>(str => str.Contains("Change Feed Processor")),
                 It.IsAny<string>(),
@@ -47,11 +49,11 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
                 It.IsAny<Documents.OperationType>(),
                 It.IsAny<RequestOptions>(),
                 It.IsAny<Func<ITrace, Task<ResponseMessage>>>(),
-                It.IsAny<Tuple<string, Func<ResponseMessage, OpenTelemetryAttributes>>>(),
+                It.IsAny<(string OperationName, Func<ResponseMessage, OpenTelemetryAttributes> GetAttributes)?>(),
                 It.IsAny<Documents.ResourceType?>(),
                 It.Is<TraceComponent>(tc => tc == TraceComponent.ChangeFeed),
                 It.IsAny<TraceLevel>()))
-               .Returns<string, string, string, Documents.OperationType, RequestOptions, Func<ITrace, Task<ResponseMessage>>,Tuple<string, Func<ResponseMessage, OpenTelemetryAttributes>>, ResourceType?, TraceComponent, TraceLevel>(
+               .Returns<string, string, string, Documents.OperationType, RequestOptions, Func<ITrace, Task<ResponseMessage>>, (string OperationName, Func<ResponseMessage, OpenTelemetryAttributes> GetAttributes)?, ResourceType?, TraceComponent, TraceLevel>(
                 (operationName, containerName, databaseName, operationType, requestOptions, func, oTelFunc, resourceType, comp, level) =>
                 {
                     using (ITrace trace = Trace.GetRootTrace(operationName, comp, level))
@@ -59,6 +61,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
                         return func(trace);
                     }
                 });
+#pragma warning restore CA1416
 
             mockContext.Setup(c => c.ProcessResourceOperationStreamAsync(
                 It.IsAny<string>(),
@@ -77,7 +80,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
             containerMock.Setup(c => c.LinkUri).Returns("http://localhot");
             containerMock.Setup(c => c.Id).Returns("containerId");
             containerMock.Setup(c => c.Database.Id).Returns("databaseId");
-            
+
             ChangeFeedPartitionKeyResultSetIteratorCore iterator = ChangeFeedPartitionKeyResultSetIteratorCore.Create(
                 lease: documentServiceLeaseCore,
                 mode: ChangeFeedMode.LatestVersion,
@@ -121,6 +124,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
 
             Mock<ContainerInternal> containerMock = new Mock<ContainerInternal>();
             Mock<CosmosClientContext> mockContext = new Mock<CosmosClientContext>();
+#pragma warning disable CA1416 // 'ResourceType' is only supported on: 'windows'
             mockContext.Setup(x => x.OperationHelperAsync<ResponseMessage>(
                 It.Is<string>(str => str.Contains("Change Feed Processor")),
                 It.IsAny<string>(),
@@ -128,11 +132,11 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
                 It.IsAny<Documents.OperationType>(),
                 It.IsAny<RequestOptions>(),
                 It.IsAny<Func<ITrace, Task<ResponseMessage>>>(),
-                It.IsAny<Tuple<string, Func<ResponseMessage, OpenTelemetryAttributes>>>(),
+                It.IsAny<(string OperationName, Func<ResponseMessage, OpenTelemetryAttributes> GetAttributes)?>(),
                 It.IsAny<Documents.ResourceType?>(),
                 It.Is<TraceComponent>(tc => tc == TraceComponent.ChangeFeed),
                 It.IsAny<TraceLevel>()))
-               .Returns<string, string, string, Documents.OperationType, RequestOptions, Func<ITrace, Task<ResponseMessage>>, Tuple<string, Func<ResponseMessage, OpenTelemetryAttributes>>, ResourceType?, TraceComponent, TraceLevel>(
+               .Returns<string, string, string, Documents.OperationType, RequestOptions, Func<ITrace, Task<ResponseMessage>>, (string OperationName, Func<ResponseMessage, OpenTelemetryAttributes> GetAttributes)?, ResourceType?, TraceComponent, TraceLevel>(
                 (operationName, containerName, databaseName, operationType, requestOptions, func, oTelFunc, resourceType, comp, level) =>
                 {
                     using (ITrace trace = Trace.GetRootTrace(operationName, comp, level))
@@ -140,6 +144,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
                         return func(trace);
                     }
                 });
+#pragma warning restore CA1416
 
             mockContext.SetupSequence(c => c.ProcessResourceOperationStreamAsync(
                 It.IsAny<string>(),
@@ -160,7 +165,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
             containerMock.Setup(c => c.LinkUri).Returns("http://localhot");
             containerMock.Setup(c => c.Id).Returns("containerId");
             containerMock.Setup(c => c.Database.Id).Returns("databaseId");
-            
+
             ChangeFeedPartitionKeyResultSetIteratorCore iterator = ChangeFeedPartitionKeyResultSetIteratorCore.Create(
                 lease: documentServiceLeaseCore,
                 mode: ChangeFeedMode.AllVersionsAndDeletes,
@@ -192,6 +197,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
 
             Mock<ContainerInternal> containerMock = new Mock<ContainerInternal>();
             Mock<CosmosClientContext> mockContext = new Mock<CosmosClientContext>();
+#pragma warning disable CA1416 // 'ResourceType' is only supported on: 'windows'
             mockContext.Setup(x => x.OperationHelperAsync<ResponseMessage>(
                 It.Is<string>(str => str.Contains("Change Feed Processor")),
                 It.IsAny<string>(),
@@ -199,11 +205,11 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
                 It.IsAny<Documents.OperationType>(),
                 It.IsAny<RequestOptions>(),
                 It.IsAny<Func<ITrace, Task<ResponseMessage>>>(),
-                It.IsAny<Tuple<string, Func<ResponseMessage, OpenTelemetryAttributes>>>(),
+                It.IsAny<(string OperationName, Func<ResponseMessage, OpenTelemetryAttributes> GetAttributes)?>(),
                 It.IsAny<Documents.ResourceType?>(),
                 It.Is<TraceComponent>(tc => tc == TraceComponent.ChangeFeed),
                 It.IsAny<TraceLevel>()))
-               .Returns<string, string, string, Documents.OperationType, RequestOptions, Func<ITrace, Task<ResponseMessage>>, Tuple<string, Func<ResponseMessage, OpenTelemetryAttributes>>, ResourceType?, TraceComponent, TraceLevel>(
+               .Returns<string, string, string, Documents.OperationType, RequestOptions, Func<ITrace, Task<ResponseMessage>>, (string OperationName, Func<ResponseMessage, OpenTelemetryAttributes> GetAttributes)?, ResourceType?, TraceComponent, TraceLevel>(
                 (operationName, containerName, databaseName, operationType, requestOptions, func, oTelFunc, resourceType, comp, level) =>
                 {
                     using (ITrace trace = Trace.GetRootTrace(operationName, comp, level))
@@ -211,6 +217,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
                         return func(trace);
                     }
                 });
+#pragma warning restore CA1416
 
             mockContext.Setup(c => c.ProcessResourceOperationStreamAsync(
                 It.IsAny<string>(),
@@ -229,7 +236,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
             containerMock.Setup(c => c.LinkUri).Returns("http://localhot");
             containerMock.Setup(c => c.Id).Returns("containerId");
             containerMock.Setup(c => c.Database.Id).Returns("databaseId");
-            
+
             ChangeFeedPartitionKeyResultSetIteratorCore iterator = ChangeFeedPartitionKeyResultSetIteratorCore.Create(
                 lease: documentServiceLeaseCore,
                 mode: ChangeFeedMode.LatestVersion,
@@ -282,11 +289,11 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
                 It.IsAny<Documents.OperationType>(),
                 It.IsAny<RequestOptions>(),
                 It.IsAny<Func<ITrace, Task<ResponseMessage>>>(),
-                It.IsAny<Tuple<string, Func<ResponseMessage, OpenTelemetryAttributes>>>(),
+                It.IsAny<(string OperationName, Func<ResponseMessage, OpenTelemetryAttributes> GetAttributes)?>(),
                 It.IsAny<Documents.ResourceType?>(),
                 It.Is<TraceComponent>(tc => tc == TraceComponent.ChangeFeed),
                 It.IsAny<TraceLevel>()))
-               .Returns<string, string, string, Documents.OperationType, RequestOptions, Func<ITrace, Task<ResponseMessage>>, Tuple<string, Func<ResponseMessage, OpenTelemetryAttributes>>, Documents.ResourceType?, TraceComponent, TraceLevel>(
+               .Returns<string, string, string, Documents.OperationType, RequestOptions, Func<ITrace, Task<ResponseMessage>>, (string OperationName, Func<ResponseMessage, OpenTelemetryAttributes> GetAttributes)?, Documents.ResourceType?, TraceComponent, TraceLevel>(
                 (operationName, containerName, databaseName, operationType, requestOptions, func, oTelFunc, resourceType, comp, level) =>
                 {
                     using (ITrace trace = Trace.GetRootTrace(operationName, comp, level))
@@ -314,7 +321,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed.Tests
             containerMock.Setup(c => c.Database.Id).Returns("databaseId");
 
             MockDocumentClient mockDocumentClient = new MockDocumentClient();
-            mockContext.Setup(c => c.DocumentClient).Returns(mockDocumentClient);          
+            mockContext.Setup(c => c.DocumentClient).Returns(mockDocumentClient);
 
             ChangeFeedPartitionKeyResultSetIteratorCore iterator = ChangeFeedPartitionKeyResultSetIteratorCore.Create(
                 lease: documentServiceLeaseCore,

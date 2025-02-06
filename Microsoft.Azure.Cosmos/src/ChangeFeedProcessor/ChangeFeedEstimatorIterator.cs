@@ -122,7 +122,7 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed
                 operationType: Documents.OperationType.ReadFeed,
                 requestOptions: null,
                 task: (trace) => this.ReadNextAsync(trace, cancellationToken),
-                openTelemetry: new (OpenTelemetryConstants.Operations.QueryChangeFeedEstimator, (response) => new OpenTelemetryResponse<ChangeFeedProcessorState>(responseMessage: response)),
+                openTelemetry: new (OpenTelemetryConstants.Operations.QueryChangeFeedEstimator, (response) => new OpenTelemetryResponse<ChangeFeedProcessorState>(responseMessage: response, querySpec: this.querySpec)),
                 traceComponent: TraceComponent.ChangeFeed,
                 traceLevel: TraceLevel.Info);
         }
@@ -398,6 +398,8 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed
 
             public override string IndexMetrics => null;
 
+            internal override string QueryAdvice => null;
+
             internal override RequestMessage RequestMessage => null;
 
             public override IEnumerator<ChangeFeedProcessorState> GetEnumerator()
@@ -431,7 +433,9 @@ namespace Microsoft.Azure.Cosmos.ChangeFeed
 
             public override CosmosDiagnostics Diagnostics => new CosmosTraceDiagnostics(this.Trace);
 
-            public override string IndexMetrics => string.Empty;
+            public override string IndexMetrics => null;
+
+            internal override string QueryAdvice => null;
 
             internal override RequestMessage RequestMessage => null;
 
